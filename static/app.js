@@ -5,11 +5,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const resolvedTicketsEl = document.getElementById('resolved-tickets');
     const escalatedTicketsEl = document.getElementById('escalated-tickets');
 
+    let ticketCache = {};
+
     // Fetch initial tickets to populate summary
     fetch('/api/tickets')
         .then(res => res.json())
         .then(data => {
             totalTicketsEl.textContent = data.length;
+            data.forEach(t => ticketCache[t.ticket_id] = t);
         });
 
     deployBtn.addEventListener('click', async () => {
@@ -29,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let resolved = 0;
                 let escalated = 0;
                 data.logs.forEach(log => {
-                    const status = log.outcome?.status?.toLowerCase() || log.outcome?.action?.toLowerCase() || '';
+                    const status = log.outcome?.status?.toLowerCase() || log.outcome?.action?.toLowerCase() || 'resolved';
                     if (status.includes('escala')) escalated++;
                     else resolved++; 
                 });
@@ -58,30 +61,43 @@ document.addEventListener('DOMContentLoaded', () => {
         logs.forEach(log => {
             setTimeout(() => {
                 const div = document.createElement('div');
+                const tInfo = ticketCache[log.ticket_id] || {};
+                
+                const stepsCount = log.steps ? log.steps.length : (log.trace ? log.trace.length : 1);
                 const outcomeText = log.outcome?.action || log.outcome?.status || 'Processed';
+                
+                let finalAction = "System Evaluation concluded.";
+                if (log.outcome) {
+                    finalAction = JSON.stringify(log.outcome?.message || log.outcome?.summary || log.outcome || "Finished");
+                }
                 
                 let cssClass = 'log-entry';
                 if (outcomeText.includes('escala')) cssClass += ' escalated';
                 else if (outcomeText.includes('replied')) cssClass += ' resolved';
                 else if (outcomeText.includes('failed')) cssClass += ' failed';
+                else cssClass += ' resolved';
 
                 div.className = cssClass;
                 div.innerHTML = `
                     <div class="log-header">
                         <span>Ticket ID: ${log.ticket_id}</span>
-                        <span>Outcome: ${outcomeText.toUpperCase()}</span>
+                        <span style="color:var(--text-secondary); font-size:0.8rem; font-weight:normal;">${tInfo.customer_email || 'Unknown User'}</span>
+                    </div>
+                    <div class="log-result" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 10px;">
+                        <strong>Subject:</strong> ${tInfo.subject || 'N/A'}<br/>
+                        <strong>Issue:</strong> <em>"${tInfo.body || 'No issue text found.'}"</em>
                     </div>
                     <div class="log-result">
                         <strong>Reasoning Trace:</strong><br/>
-                        ${log.steps.length} interaction steps detected.
+                        ${stepsCount} interaction/reasoning steps executed to reach conclusion.
                         <br/><br/>
-                        <strong>Final Action:</strong><br/>
-                        ${JSON.stringify(log.outcome?.message || log.outcome?.summary || log.outcome || "Finished", null, 2)}
+                        <strong>Final Outcome [${outcomeText.toUpperCase()}]:</strong><br/>
+                        ${finalAction}
                     </div>
                 `;
                 logsContainer.insertBefore(div, logsContainer.firstChild);
             }, delay);
-            delay += 300; // staggering logic for cool visual effect
+            delay += 300;
         });
     }
 
