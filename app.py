@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 import json
 import os
 import time
@@ -24,6 +24,32 @@ def index():
 def list_tickets():
     tickets = get_all_tickets()
     return jsonify(tickets)
+
+@app.route('/api/ticket/new', methods=['POST'])
+def new_ticket():
+    data = request.json
+    tickets = get_all_tickets()
+    
+    # Generate new ID continuously
+    new_id_num = len(tickets) + 1
+    new_id = f"TKT-{str(new_id_num).zfill(3)}"
+    
+    new_t = {
+         "ticket_id": new_id,
+         "customer_email": data.get("email"),
+         "subject": data.get("subject"),
+         "body": data.get("body"),
+         "status": "open",
+         "source": "web_ui",
+         "tier": 1
+    }
+    tickets.append(new_t)
+    
+    path = os.path.join("data", "tickets.json")
+    with open(path, "w", encoding="utf-8") as f:
+         json.dump(tickets, f, indent=4)
+         
+    return jsonify({"status": "success", "ticket": new_t})
 
 @app.route('/api/run', methods=['POST'])
 def run_agent():

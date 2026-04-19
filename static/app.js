@@ -8,12 +8,42 @@ document.addEventListener('DOMContentLoaded', () => {
     let ticketCache = {};
 
     // Fetch initial tickets to populate summary
-    fetch('/api/tickets')
-        .then(res => res.json())
-        .then(data => {
-            totalTicketsEl.textContent = data.length;
-            data.forEach(t => ticketCache[t.ticket_id] = t);
+    const refreshQueue = () => {
+        fetch('/api/tickets')
+            .then(res => res.json())
+            .then(data => {
+                totalTicketsEl.textContent = data.length;
+                data.forEach(t => ticketCache[t.ticket_id] = t);
+            });
+    };
+    refreshQueue();
+
+    const submitBtn = document.getElementById('submit-ticket-btn');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', async () => {
+            const email = document.getElementById('new-t-email').value;
+            const subject = document.getElementById('new-t-subject').value;
+            const body = document.getElementById('new-t-body').value;
+            
+            if (!email || !subject || !body) return alert("Please fill all fields.");
+            
+            submitBtn.textContent = 'Submitting...';
+            const res = await fetch('/api/ticket/new', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, subject, body })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                alert(`Ticket ${data.ticket.ticket_id} added successfully!`);
+                document.getElementById('new-t-email').value = '';
+                document.getElementById('new-t-subject').value = '';
+                document.getElementById('new-t-body').value = '';
+                refreshQueue(); // Refresh queue counter
+                submitBtn.textContent = 'Submit Ticket';
+            }
         });
+    }
 
     deployBtn.addEventListener('click', async () => {
         deployBtn.disabled = true;
