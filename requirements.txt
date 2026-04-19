@@ -2,3 +2,4 @@ anthropic
 streamlit
 pydantic
 requests
+flask
