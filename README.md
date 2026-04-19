@@ -16,9 +16,9 @@ This repository contains the submission for the 2026 Global Agentic AI Hackathon
     ```
 4. **Run the Agent:**
     ```powershell
-    python main.py
+    python app.py
     ```
-    This single command will download the mock data files directly into `./data/`, initialize the ReAct loop across 20 concurrent threads, and generate the final `audit_log.json`.
+    This single command will spin up the Flask Web GUI. Navigate to `http://localhost:5000` to interact with the dashboard, initializing the ReAct loop across 20 concurrent threads and generating the final `audit_log.json`.
 
 ## Tech Stack
 * **Language**: Python 3
