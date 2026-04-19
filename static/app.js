@@ -14,7 +14,44 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 totalTicketsEl.textContent = data.length;
                 data.forEach(t => ticketCache[t.ticket_id] = t);
+                renderActiveQueue(data);
             });
+    };
+    
+    // Tab functionality
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            
+            btn.classList.add('active');
+            document.getElementById(btn.getAttribute('data-target')).style.display = 'flex';
+        });
+    });
+
+    const renderActiveQueue = (tickets) => {
+        const activeContainer = document.getElementById('active-queue');
+        activeContainer.innerHTML = '';
+        const openTickets = tickets.filter(t => t.status === 'open' || !t.status);
+        if (openTickets.length === 0) {
+            activeContainer.innerHTML = '<div class="empty-state">No Active Tickets.</div>';
+            return;
+        }
+        openTickets.forEach(t => {
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            div.innerHTML = `
+                <div class="log-header">
+                    <span>Ticket ID: ${t.ticket_id}</span>
+                    <span style="color:var(--text-secondary); font-size:0.8rem; font-weight:normal;">${t.customer_email || 'Unknown User'}</span>
+                </div>
+                <div class="log-result">
+                    <strong>Subject:</strong> ${t.subject || 'N/A'}<br/>
+                    <strong>Issue:</strong> <em>"${t.body || 'No issue text found.'}"</em>
+                </div>
+            `;
+            activeContainer.appendChild(div);
+        });
     };
     refreshQueue();
 
@@ -49,7 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
         deployBtn.disabled = true;
         deployBtn.textContent = 'Agent Processing...';
         deployBtn.style.opacity = '0.7';
-        logsContainer.innerHTML = '<div class="empty-state">Initializing ReAct Engine... Fetching LLM Inference...</div>';
+        document.getElementById('resolved-queue').innerHTML = '<div class="empty-state">Processing...</div>';
+        document.getElementById('escalated-queue').innerHTML = '<div class="empty-state">Processing...</div>';
 
         try {
             const response = await fetch('/api/run', { method: 'POST' });
@@ -57,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (data.status === 'success') {
                 renderLogs(data.logs);
+                refreshQueue(); // Move tickets out of Active Queue if processed
                 
                 // Animate stats
                 let resolved = 0;
@@ -85,7 +124,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function renderLogs(logs) {
-        logsContainer.innerHTML = '';
+        const resolvedContainer = document.getElementById('resolved-queue');
+        const escalatedContainer = document.getElementById('escalated-queue');
+        resolvedContainer.innerHTML = '';
+        escalatedContainer.innerHTML = '';
+        
         let delay = 0;
         
         logs.forEach(log => {
@@ -102,10 +145,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 let cssClass = 'log-entry';
-                if (outcomeText.includes('escala')) cssClass += ' escalated';
-                else if (outcomeText.includes('replied')) cssClass += ' resolved';
-                else if (outcomeText.includes('failed')) cssClass += ' failed';
-                else cssClass += ' resolved';
+                let isEscalated = false;
+                if (outcomeText.includes('escala')) {
+                    cssClass += ' escalated';
+                    isEscalated = true;
+                } else if (outcomeText.includes('replied') || outcomeText.includes('resolv')) {
+                    cssClass += ' resolved';
+                } else if (outcomeText.includes('failed')) {
+                    cssClass += ' failed';
+                } else {
+                    cssClass += ' resolved';
+                }
 
                 div.className = cssClass;
                 div.innerHTML = `
@@ -125,10 +175,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${finalAction}
                     </div>
                 `;
-                logsContainer.insertBefore(div, logsContainer.firstChild);
+                
+                if (isEscalated) {
+                    escalatedContainer.insertBefore(div, escalatedContainer.firstChild);
+                } else {
+                    resolvedContainer.insertBefore(div, resolvedContainer.firstChild);
+                }
             }, delay);
             delay += 300;
         });
+        
+        if (resolvedContainer.innerHTML === '') resolvedContainer.innerHTML = '<div class="empty-state">No Resolved Tickets yet.</div>';
+        if (escalatedContainer.innerHTML === '') escalatedContainer.innerHTML = '<div class="empty-state">No Escalated Tickets yet.</div>';
     }
 
     function animateValue(obj, start, end, duration) {

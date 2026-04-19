@@ -51,14 +51,22 @@
                     </div>
                     
                     <div style="flex: 2;">
-                        <h2>Real-Time Telemetry</h2>
-                        <div id="logs-container" class="glass-panel logs-container">
+                        <h2>Module Telemetry</h2>
+                        <div class="tab-buttons" style="display:flex; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.2);">
+                            <button class="tab-btn active" data-target="active-queue">Active Queue</button>
+                            <button class="tab-btn" data-target="resolved-queue">Resolved</button>
+                            <button class="tab-btn" data-target="escalated-queue">Escalated</button>
+                        </div>
+                        <div id="active-queue" class="tab-content active glass-panel logs-container">
+                            <div class="empty-state">No Active Tickets.</div>
+                        </div>
+                        <div id="resolved-queue" class="tab-content glass-panel logs-container" style="display: none;">
+                            <div class="empty-state">Agent awaiting deployment...</div>
+                        </div>
+                        <div id="escalated-queue" class="tab-content glass-panel logs-container" style="display: none;">
                             <div class="empty-state">Agent awaiting deployment...</div>
                         </div>
                     </div>
-                </div>
-            </section>
-                    <div class="empty-state">Agent awaiting deployment...</div>
                 </div>
             </section>
         </main>
