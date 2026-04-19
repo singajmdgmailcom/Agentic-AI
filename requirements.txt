@@ -1,5 +1,4 @@
-google-genai
-requests
+anthropic
+streamlit
 pydantic
-openai
-flask
+requests

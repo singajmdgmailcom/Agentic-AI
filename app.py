@@ -1,55 +1,74 @@
-from flask import Flask, render_template, jsonify
+import streamlit as st
 import json
 import os
-import time
+from agent import process_ticket
 
-app = Flask(__name__)
+# Page Setup
+st.set_page_config(page_title="ShopWave Autonomous Support", layout="wide", page_icon="🤖")
 
-# Import from existing architecture
-from data_store import init_data, get_all_tickets
-from agent import setup_client, process_ticket
-import concurrent.futures
+st.title("🤖 ShopWave AI - Anthropic Engine")
+st.markdown("Powered by **Claude 3.5 Sonnet** (Anthropic) - Resolving complex support queues.")
 
-# Initialize data store
-init_data()
+# Ensure keys
+api_key = os.environ.get("ANTHROPIC_API_KEY")
+if not api_key:
+    api_key = st.text_input("Enter ANTHROPIC_API_KEY", type="password")
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+# Data loading
+if not os.path.exists("data"):
+    st.error("Data directory missing! Ensure data files are present.")
+    st.stop()
 
-@app.route('/api/tickets')
-def list_tickets():
-    tickets = get_all_tickets()
-    return jsonify(tickets)
+def get_tickets():
+    path = os.path.join("data", "tickets.json")
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
 
-@app.route('/api/run', methods=['POST'])
-def run_agent():
-    # If the user doesn't have an API key locally loaded, we fallback to the mocked audit log
-    # purely for presentation purposes if the LLM crashes.
-    client = setup_client()
-    if not client:
-        if os.path.exists('audit_log.json'):
-             with open('audit_log.json', 'r', encoding='utf-8') as f:
-                 return jsonify({"status": "success", "logs": json.load(f), "fake": True})
-        return jsonify({"error": "No API Key and no fallback log found.", "status": "failed"}), 500
-        
-    tickets = get_all_tickets()
-    audit_logs = []
+original_tickets = get_tickets()
+
+col1, col2 = st.columns([1, 2])
+
+with col1:
+    st.subheader("Queue Stats")
+    resolved = len([t for t in original_tickets if t.get("status") == "resolved"])
+    escalated = len([t for t in original_tickets if t.get("status") == "escalated"])
+    open_t = len(original_tickets) - resolved - escalated
     
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future_to_ticket = {executor.submit(process_ticket, ticket, client): ticket for ticket in tickets}
-        for future in concurrent.futures.as_completed(future_to_ticket):
-            try:
-                log = future.result()
-                audit_logs.append(log)
-            except Exception as e:
-                pass
-                
-    # Update the local file for audit constraints
-    with open("audit_log.json", "w", encoding="utf-8") as f:
-        json.dump(audit_logs, f, indent=4)
-        
-    return jsonify({"status": "success", "logs": audit_logs, "fake": False})
+    st.metric("Total Tickets", len(original_tickets))
+    st.metric("Open Queue", open_t)
+    st.metric("Resolved", resolved)
+    st.metric("Escalated", escalated)
+    
+    st.divider()
+    
+    if st.button("🚀 Process Open Tickets Batch", use_container_width=True):
+        if not api_key:
+            st.error("Please provide an API Key first.")
+        else:
+             with st.spinner("Processing batch via Anthropic..."):
+                  audit_logs = []
+                  for t in original_tickets:
+                       if t.get("status") in ["resolved", "escalated"]:
+                            continue
+                            
+                       log = process_ticket(t, api_key)
+                       audit_logs.append(log)
+                       
+                  with open("data/audit_log.json", "w", encoding="utf-8") as file:
+                       json.dump(audit_logs, file, indent=4)
+                       
+                  st.success("Batch Completed!")
+                  st.rerun()
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+with col2:
+    st.subheader("Active Knowledge Processing & Tickets")
+    
+    for t in original_tickets:
+        with st.expander(f"Ticket {t.get('ticket_id')} - {t.get('subject', 'No Subject')}"):
+             st.write(f"**Customer:** {t.get('customer_email', t.get('customer_id'))}")
+             st.write(f"**Status:** {t.get('status', 'Open')}")
+             st.write(f"**Issue:** {t.get('body')}")
+             if t.get("resolution_note"):
+                  st.info(f"Agent Note: {t['resolution_note']}")
