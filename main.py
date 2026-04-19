@@ -22,7 +22,7 @@ def main():
     
     # Process concurrently. The hackathon constraint penalizes sequential processing.
     # Limiting max_workers to 10 so we don't trip API rate limits too quickly on standard tiers.
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         # Submit all tasks
         future_to_ticket = {executor.submit(process_ticket, ticket, client): ticket for ticket in tickets}
         

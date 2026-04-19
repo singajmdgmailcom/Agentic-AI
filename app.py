@@ -36,7 +36,7 @@ def run_agent():
     tickets = get_all_tickets()
     audit_logs = []
     
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         future_to_ticket = {executor.submit(process_ticket, ticket, client): ticket for ticket in tickets}
         for future in concurrent.futures.as_completed(future_to_ticket):
             try:
